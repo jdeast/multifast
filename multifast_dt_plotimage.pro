@@ -443,7 +443,7 @@ pro plotimage_pos, xrange0, imgxrange0, imgxsize, xreverse, srcxpix, imgxpanel, 
 end
 
 ;; Main program
-pro multifast_DT_plotimage, img0, xrange=xrange0, yrange=yrange0, $
+pro multifast_dt_plotimage, img0, xrange=xrange0, yrange=yrange0, $
                imgxrange=imgxrange0, imgyrange=imgyrange0, $
                xlog=xlog, ylog=ylog, $
                position=position, panel=panel, subpanel=subpanel, $
