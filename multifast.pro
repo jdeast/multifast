@@ -123,7 +123,7 @@ pro multifast, rvpath=rvpath, tranpath=tranpath, refit=refit, priors=priors, $
              noslope=noslope, nthin=nthin, secondary=secondary, $
              sigclip=sigclip, prefix=prefix,maxsteps=maxsteps,$
              rossiter=rossiter, debug=debug, display=display, ttv=ttv,redo=redo,$
-             minperiod=minperiod,maxperiod=maxperiod, $
+             minperiod=minperiod,maxperiod=maxperiod, maxgr=maxgr,$
              transitfiles=transitfiles, replotmodels=replotmodels, replotall=replotall
 
 COMMON rv_block, rvdata, rvdebug
@@ -131,6 +131,8 @@ COMMON chi2_block, rvptrs, transitptrs, priors0, debug0, rvfit, tranfit, log
 COMMON dopptom_block, useDoppTom, dopptomptrs
 COMMON rmerrscaling, rmerrscale
 COMMON sinusoid_block, nSinusoids, frequencies, isDEMC, nAmoebaIterations
+COMMON boundary_block, be, ba, bteff, bfeh, blogg, bdp, bds, bar, bK, bTTV, bF0, blambda
+COMMON ndetrendsblock, nmaxdetrends
 isDEMC = 0
 nAmoebaIterations = 0L
 if dopptomptrs EQ !null then dopptomptrs = ptrarr(1,/allocate_heap)
@@ -139,7 +141,7 @@ if useDoppTom EQ !null then useDoppTom = 0
 if nSinusoids EQ !null then nSinusoids = 0
 if nSinusoids EQ !null then nSinusoids = 0
 if frequencies EQ !null then frequencies = [0,0]
-
+if nmaxdetrends EQ !null then nmaxdetrends = 999
 if keyword_set(debug) then debug0 = 1 $
 else debug0=0
 priors0 = priors
@@ -179,7 +181,7 @@ ntransits = n_elements(transitfiles)
 nsecondaries = 0;
 transitptrs = ptrarr(ntransits,/allocate_heap)
 for i=0, ntransits-1 do begin
-  *(transitptrs[i]) = readtransit3(transitfiles[i])
+  *(transitptrs[i]) = readtransit3(transitfiles[i],nmaxdetrends)
   (*(transitptrs[i])).ndx = npars
   npars = npars + 2 + (*(transitptrs[i])).ndetrend + 2*nSinusoids ;; TTV, F0, C0... Cn
   if ((*(transitptrs[i])).secondary eq 1) then nsecondaries += 1;
@@ -293,7 +295,7 @@ if not keyword_set(replotall) and not keyword_set(replotmodels) then begin
     cosi = priors[0,6];
     if cosi eq 0.0d0 then cosi = 0.05d0
     ucosi = priors[1,6];
-    if ucosi eq !values.d_infinity then ucosi = 0.05d0
+    if ucosi eq !values.d_infinity then ucosi = 0.05d0 ;0.05d0
     p = priors[0,7];
     if p eq 0d0 then p = 0.1d0
     up = priors[1,7];
@@ -316,13 +318,13 @@ if not keyword_set(replotall) and not keyword_set(replotmodels) then begin
     if udepth2 eq !values.d_infinity then udepth2 = 0.003d0
     vsini = priors[0,13]
     uvsini = priors[1,13]
-    if uvsini eq !values.d_infinity then uvsini = vsini * 0.2d0
+    if uvsini eq !values.d_infinity then uvsini = vsini * 0.1d0
     lambda = priors[0,14]
     ulambda = priors[1,14]
-    if ulambda eq !values.d_infinity then ulambda = !dpi
+    if ulambda eq !values.d_infinity then ulambda = !dpi/30.0d0
     macturb = priors[0,15]   ;;###
     umacturb = priors[1,15]
-    if umacturb eq !values.d_infinity then umacturb = 3000d0   ;;###
+    if umacturb eq !values.d_infinity then umacturb = macturb/3.0d0   ;;###
     
     dindex = 16+nrvtel  ;;###
     dwindex = 16+nrvtel ;;###
@@ -776,7 +778,7 @@ if not keyword_set(replotall) and not keyword_set(replotmodels) then begin
     if ulogk eq !values.d_infinity then ulogk = 0.014
     
     ucosi = priors[1,6];
-    if ucosi eq !values.d_infinity then ucosi = 0.05d0
+    if ucosi eq !values.d_infinity then ucosi = 0.05d0 ;0.05d0
     
     up = priors[1,7];
     if up eq !values.d_infinity then up = 0.01d0
@@ -799,14 +801,14 @@ if not keyword_set(replotall) and not keyword_set(replotmodels) then begin
     vsini = priors[0,13]
     uvsini = priors[1,13]
     if uvsini eq !values.d_infinity then uvsini = vsini * 0.1d0
-    if useDoppTom then uvsini = 0d0
-    uvsini = 0d0
-    
+;    if useDoppTom then uvsini = 0d0  ;kc commented
+;    uvsini = 0d0                     ;kc commented
     lambda = priors[0,14]
     ulambda = priors[1,14]
-    if ulambda eq !values.d_infinity then ulambda = !dpi
+    if ulambda eq !values.d_infinity then ulambda = !dpi/30.0d0
+    macturb = priors[0,15]   ;;###
     umacturb = priors[1,15]
-    if umacturb eq !values.d_infinity then umacturb = 3000d0   ;;###
+    if umacturb eq !values.d_infinity then umacturb = macturb/3.0d0   ;;###
     
     printf, log, 'Finding best fit for the combination of all RV, RM, DT, and light curve datasets'
     print, 'Finding best fit for the combination of all RV, RM, DT, and light curve datasets'
@@ -826,9 +828,10 @@ if not keyword_set(replotall) and not keyword_set(replotmodels) then begin
     nmax=1d5
     tranfit = indgen(n_elements(transitptrs))
     rvfit = indgen(n_elements(rvptrs))
-    
+
     ;debug0=1
     nAmoebaIterations = 0L
+
     best = multifast_amoeba(1d-6,function_name=chi2func,p0=pars,scale=scale,$
                           ncalls=ncalls,nmax=1d8,log=log)
 
@@ -852,14 +855,14 @@ if not keyword_set(replotall) and not keyword_set(replotmodels) then begin
     texbestfile = prefix + 'amoebabestfit.' + circtxt + slopetxt + 'tex'
     label = "tab:" + prefix
     caption = prefix + '  Amoeba Best Fit +/- Prior'
-    bestlatexnames = [['\dot{\gamma}', 'RV slope (m/s/day)'],$    ;; 0 Step parameters
+    bestlatexnames = [['\dot{\gamma}', 'RV slope (m/s/day)'                  ],$ ;; 0 Step parameters
                   ['T_C',          'Time of inferior conjunction (\bjdtdb)'  ],$ ;; 1
-                  ['\log{P}',      'Log of period'                           ],$ ;; 2
-                  ['\ecosw',       ''                                        ],$ ;; 3
-                  ['\esinw',       ''                                        ],$ ;; 4
-                  ['\log{K}',      'Log of the RV semi-amplitude'            ],$ ;; 5
-                  ['\cos{i}',      'Cos of inclination'                      ],$ ;; 6
-                  ['R_{P}/R_{*}',  'Radius of the planet in stellar radii'   ],$ ;; 7
+                  ['P',            'Orbital Period'                          ],$ ;; 2
+                  ['e',            'Eccentricity'                            ],$ ;; 3
+                  ['Omega',        'Omega (degrees)'                         ],$ ;; 4
+                  ['K',            'RV semi-amplitude'                       ],$ ;; 5
+                  ['i',            'Inclination'                             ],$ ;; 6
+                  ['\delta',       'Transit depth'                           ],$ ;; 7
                   ['a/R_*',        'Semi-major axis in stellar radii'        ],$ ;; 8
                   ['\log{g_*}',    'Surface gravity (cgs)'                   ],$ ;; 9
                   ['\teff',        'Effective temperature (K)'               ],$ ;; 10
@@ -867,10 +870,22 @@ if not keyword_set(replotall) and not keyword_set(replotmodels) then begin
                   ['\delta_S',     'Secondary eclipse depth'                 ],$ ;; 12
                   ['v\sin{I_*}',   'Rotational velocity (m/s)'               ],$ ;; 13
                   ['\lambda',      'Spin-orbit alignment (degrees)'          ],$ ;; 14
-                  ['MacTurb',      'Macro turbulance'                        ],$ ;; 15    ;;###
+                  ['MacTurb',      'Macro turbulance (m/s)'                        ],$ ;; 15    ;;###
                   [gammanames                                                ],$ ;; 16:15+nrvtel  ;;###
                   [coeffnames                                                ]] ;; 16+nrvtel:npars-1   ;;###
-    exofast_latextab, [transpose(best),transpose(masterscale)], texbestfile, parnames=bestlatexnames[0,0:npars-1], $  //latexnames do not match bestfit pars, need to make names list from priors
+    bestamoebapars=transpose(best)
+    bestamoebapars[2]=10^bestamoebapars[2]
+    e1 = sqrt(bestamoebapars[3]^2 + bestamoebapars[4]^2)
+    if e1 eq 0 then omega1 = !dpi/2d0 $
+    else omega1 = atan(bestamoebapars[4], bestamoebapars[3])
+    bestamoebapars[3] = e1
+    bestamoebapars[4] = omega1*180/!dpi
+    bestamoebapars[5]=10^bestamoebapars[5]
+    bestamoebapars[6]=acos(bestamoebapars[6])*180.0d0/!dpi
+    bestamoebapars[7]=bestamoebapars[7]^2
+    bestamoebapars[8]=10^bestamoebapars[8]
+    bestamoebapars[14]=bestamoebapars[14]*180.0d0/!dpi
+    exofast_latextab, [bestamoebapars,transpose(masterscale)], texbestfile, parnames=bestlatexnames[0,0:npars-1], $
                       units=bestlatexnames[1,0:npars-1], $ ;order=vorder, sidelabels=sidelabels, 
                       caption=caption, label=label
     
@@ -884,7 +899,7 @@ if not keyword_set(replotall) and not keyword_set(replotmodels) then begin
     ;debug0=1
     ;; do the MCMC fit
 
-    multifast_demc, best, chi2func, pars, chi2=chi2, tofit=tofit,$
+    multifast_demc, best, chi2func, pars, chi2=chi2, tofit=tofit, maxgr=maxgr,$
                   nthin=nthin, maxsteps=maxsteps, angular=angular, burnndx=burnndx, log=log
 
     printf, log, 'Finished MCMC'
@@ -1195,12 +1210,13 @@ if not keyword_set(replotmodels) then begin
     caption = " values and 68\% confidence interval for " + prefix
     parfile = prefix + 'pdf.' + circtxt + slopetxt + 'ps'
     covarfile = prefix + 'covar.' + circtxt + slopetxt + 'ps'
+    covartextfile = prefix + 'covar.' + circtxt + slopetxt + 'txt'
     texmedfile = prefix + 'median.' + circtxt + slopetxt + 'tex'
     printf, log, 'Creating pdf and covariance plots'
     print, 'Creating pdf and covariance plots'
     multifast_plotdist, pars, finalpars, bestpars=bestpars, $
-                      parnames=parnames, angular=angular, log=log,$
-                      pdfname=parfile, covarname=covarfile,/degrees
+                      parnames=parnames, latexparnames=latexnames[0,*], angular=angular, log=log,$
+                      pdfname=parfile, covarname=covarfile, covartextname=covartextfile, /degrees
     printf, log, 'Creating parameter table'
     print, 'Creating parameter table'
     exofast_latextab, finalpars, texmedfile, parnames=latexnames[0,*], $

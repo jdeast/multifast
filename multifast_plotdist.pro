@@ -54,12 +54,13 @@
 ;   2009/11/24 - Written: Jason Eastman - The Ohio State University
 ;-
 pro multifast_plotdist, pars, medianpars, angular=angular, $
-                      parnames=parnames, units=units, nocovar=nocovar, $
-                      pdfname=pdfname, covarname=covarname, log=log, $
+                      parnames=parnames, latexparnames=latexparnames, units=units, nocovar=nocovar, $
+                      pdfname=pdfname, covarname=covarname, covartextname=covartextname, log=log, $
                       bestpars=bestpars, probs=probs, degrees=degrees
 
 if n_elements(pdfname) eq 0 then pdfname = 'pdf.ps'
 if n_elements(covarname) eq 0 then covarname = 'covar.ps'
+if n_elements(covartextname) eq 0 then covartextname = 'covar.txt'
 if n_elements(bestpars) ne 0 then bestpars = replicate(1,3)#bestpars
 
 nparnames = n_elements(parnames)
@@ -194,13 +195,40 @@ if keyword_set(nocovar) then begin
    return
 endif
 
+corr = correlate(pars)
+cov = correlate(pars, /covariance)
+format='(A16,x,A16,f16.8,x,f16.8,x,f16.8,x,f16.8)'
+openw, lun, covartextname, /get_lun
+
+directobspars = [where(latexparnames eq 'a/R_*'),where(latexparnames eq '\delta'),where(latexparnames eq 'K'),where(latexparnames eq 'P'),where(latexparnames eq 'i')]
+eindex =  where(latexparnames eq 'e')
+if eindex gt -1 then directobspars = [directobspars, eindex]
+
+;directobspars = [ 7, 8, 
+printf, lun, '            PAR1             PAR2     CORRELATION       COVARIANCE       DISPERSION'
+for i=0, n_elements(directobspars)-1 do begin 
+    ;if i ne npars-1 then begin
+    ;  if i ne 0 then printf, lun, ''
+    ;  printf, lun, '            PAR1             PAR2     CORRELATION       COVARIANCE       DISPERSION'
+    ;endif
+    for j=i+1,n_elements(directobspars)-1 do begin
+        printf, lun, latexparnames[directobspars[i]], latexparnames[directobspars[j]], $
+                corr[directobspars[i],directobspars[j]], cov[directobspars[i],directobspars[j]], $
+                sqrt(abs(cov[directobspars[i],directobspars[j]])), format=format
+    endfor
+    
+endfor
+close, lun
+free_lun, lun
+;if 1 then return
+
 device, filename = covarname
 !P.Multi=0
 nplot=0
 nplots = npars*(npars-1.d0)/2.d0
 nxplots = 4                     
 nyplots = 4   
-corr = correlate(pars)
+
 
 !p.multi=[0,nxplots,nyplots]
 for i=0, npars-1 do begin

@@ -4,8 +4,9 @@ function multifast_chi2, pars, determinant=determinant, $
 COMMON chi2_block, rvptrs, transitptrs, priors, debug, rvfit, tranfit, log
 COMMON dopptom_block, useDoppTom, dopptomptrs
 COMMON sinusoid_block, nSinusoids, frequencies, isDEMC, nAmoebaIterations
+COMMON boundary_block, be, ba, bteff, bfeh, blogg, bdp, bds, bar, bK, bTTV, bF0, blambda
 
-if lambdaRange EQ !null then lambdaRange = 0     ;; set to 0 for full lambda range -pi to pi, set to 1 to limit to 0 to pi, set to -1 to limit to -pi to 0
+if lambdaRange EQ !null then lambdaRange = 0  ;; set to 0 for full lambda range -pi to pi, set to 1 to limit to 0 to pi, set to -1 to limit to -pi to 0
 
 if not isDEMC then nAmoebaIterations++
 if not isDEMC and (nAmoebaIterations mod 10000 eq 0) then print, nAmoebaIterations, ' amoeba iterations'
@@ -38,7 +39,7 @@ COMMON control, useYY, nInterpModel, exposuretime, transitSpacing, noresiduals, 
                 secondaryResidualSpacing, secondaryResidualLabelOffset, binnedSecondaryLcYMax, binnedSecondaryLcYMin, binnedSecondaryLcResyRange, $
                 RVresyrange,RVresytick, RMxrange, RMyrange, RMresyrange, RMresytick, BSresyrange, BSresytick, useStellarRadiusPrior, stellarRadiusPriorCenter, stellarRadiusPriorWidth, $
                 useImpactParamPrior, impactParamPriorCenter, impactParamPriorWidth, useBlend, blendVals, useBisectorPlot, nTransitsPerPlot, plotRawLightCurves, $
-                leftSecondaryPlotWidthHrs, rightSecondaryPlotWidthHrs, DTrangelow, DTrangehigh
+                leftSecondaryPlotWidthHrs, rightSecondaryPlotWidthHrs, DTrangelow, DTrangehigh, transitTopSpace, binnedLcResyTick, binnedSecondaryLcResyTick
                 
 
 ;;These variable should be set in the main control program, but if not, they will be set here
@@ -53,12 +54,27 @@ if (nInterpModel EQ !null) or (nInterpModel lt 1) then options.ninterp = 1 else 
 ;;convert exposure time in seconds to minutes (used only if nInterpModel is greater than 1)
 if (exposuretime EQ !null) or (exposuretime lt 0) then options.exptime = 1.0d0 else options.exptime = exposuretime/60.d0;
 
+;; initalize boundary checking parameters if not set in boundary_block
+if be    EQ !null then be    = [0.0d0, 1.0d0]  ;eccentrcity bounds
+if ba    EQ !null then ba    = [0.0d0, !values.d_infinity]  ;orbital semi-amplitude bounds (in AU)
+if bteff EQ !null then bteff = [3500.0d0, 50000.0d0]   ;Teff bounds due to LD table limits
+if bfeh  EQ !null then bfeh  = [-5.0d0, 1.0d0]  ;feh bounds due to LD table limits
+if blogg EQ !null then blogg = [0.0d0, 5.0d0]  ;logg bounds due to LD table limits
+if bdp   EQ !null then bdp   = [-!values.d_infinity, !values.d_infinity] ;primary transit depth bounds  
+if bds   EQ !null then bds   = [-!values.d_infinity, !values.d_infinity] ;secondary transit depth bounds 
+if bar   EQ !null then bar   = [0.0d0, !values.d_infinity] ;a/r* bounds  
+if bK    EQ !null then bK    = [0.0d0, !values.d_infinity] ;velocity semi-amplitude bounds (m/s)
+if blambda EQ !null then blambda  = [-!dpi, dpi] ;sky-projected spin-orbit angle lambda bounds (radians)
+if bTTV  EQ !null then bTTV  = [-!values.d_infinity,!values.d_infinity] ;TTV bounds (in days) for all transits
+if bF0   EQ !null then bF0   = [-!values.d_infinity,!values.d_infinity] ;FO bounds for all transits 
+
 ;;transit plotting parameters
 if plotRawLightCurves EQ !null then plotRawLightCurves = 0
 if nTransitsPerPlot EQ !null then nTransitsPerPlot = 999999
 if nTransitsPerPlot LT 1 then nTransitsPerPlot = 1
 if nSinusoids EQ !null then nSinusoids = 0
 if transitSpacing EQ !null then transitSpacing = 0.030d0
+if transitTopSpace EQ !null then transitTopSpace = 0.0d0
 if noresiduals EQ !null then noresiduals = 1   ;;  0 = show residuals in multi-lightcurve plot, 1 = don't show residuals in multi-lightcurve plot
 if residualOffsetFromTransitBaseline EQ !null then residualOffsetFromTransitBaseline = -0.020  ;;used if noresduals = 0 above, negative is below transit baseline, positive above
 if labelOffset EQ !null then labelOffset = 0.000d0   ;; negative is below transit baseline, positive above
@@ -73,6 +89,7 @@ if transitResidualLabelOffset EQ !null then transitResidualLabelOffset = transit
 if binnedLcYMax EQ !null then binnedLcYMax = 1.005d0
 if binnedLcYMin EQ !null then binnedLcYMin = 0.965d0
 if binnedLcResyRange EQ !null then binnedLcResyRange = 0.005d0
+if binnedLcResyTick EQ !null then binnedLcResyTick = binnedLcResyRange/2.0d0
 
 ;;secondary plotting parameters
 if leftSecondaryPlotWidthHrs EQ !null then leftSecondaryPlotWidthHrs =  leftPlotWidthHrs  ;;positive value
@@ -90,6 +107,7 @@ if secondaryResidualLabelOffset EQ !null then secondaryResidualLabelOffset = sec
 if binnedSecondaryLcYMax EQ !null then binnedSecondaryLcYMax = 1.010d0
 if binnedSecondaryLcYMin EQ !null then binnedSecondaryLcYMin = 0.990d0
 if binnedSecondaryLcResyRange EQ !null then binnedSecondaryLcResyRange = 0.005d0
+if binnedSecondaryLcResyTick EQ !null then binnedSecondaryLcResyTick = binnedSecondaryLcResyRange/2.0d0
 
 ;;RV plotting parameters 
 if RVresyrange EQ !null then RVresyrange = [-100d0,100d0]
@@ -131,12 +149,35 @@ chi2 = 0.d0
 lambdaRange = 0
 if useDoppTom then lambdaRange = (*(dopptomptrs[0])).lambdaRange
 
+;; limit eccentricity to avoid collision with star during periastron
+;; the ignored tidal effects would become important long before this,
+;; but this prevents numerical problems compared to the e < 1 constraint
+;; the not/lt (instead of ge) robustly handles NaNs too
+;; abs(p) because p is allowed to be negative to eliminate bias
 e = sqrtecosw^2 + sqrtesinw^2
+if not (e lt (1d0-1d0/ar-abs(p)/ar)) then return, !values.d_infinity
 if e eq 0d0 then omega = !dpi/2d0 $
 else omega = atan(sqrtesinw, sqrtecosw)
 
+ntransits = n_elements(tranfit)
+
 ;; boundary checking
-if e ge 1d0 then return, !values.d_infinity
+if e lt be[0] or e gt be[1] then return, !values.d_infinity  
+if logg lt blogg[0] or logg gt blogg[1] then return, !values.d_infinity
+if feh  lt bfeh[0] or feh gt bfeh[1] then return, !values.d_infinity
+if teff lt bteff[0] or teff gt bteff[1] then return, !values.d_infinity
+if K lt bK[0] or K gt bK[1] then return, !values.d_infinity
+if p^2 lt bdp[0] or p^2 gt bdp[1] then return, !values.d_infinity
+if depth2 lt bds[0] or depth2 gt bds[1] then return, !values.d_infinity
+if ar lt bar[0] or ar gt bar[1] then return, !values.d_infinity
+for i=0, ntransits-1 do begin
+   if (pars[((*(transitptrs[tranfit[i]])).ndx)] lt bTTV[0]) then return, !values.d_infinity
+   if (pars[((*(transitptrs[tranfit[i]])).ndx)] gt bTTV[1]) then return, !values.d_infinity
+   if (pars[((*(transitptrs[tranfit[i]])).ndx) + 1] lt bF0[0]) then return, !values.d_infinity
+   if (pars[((*(transitptrs[tranfit[i]])).ndx) + 1] gt bF0[1]) then return, !values.d_infinity
+endfor
+
+;boundary checking for cos(i)
 if pars[6] gt 1d0 or pars[6] lt 0d0 then return, !values.d_infinity
 
 ;; negative (or zero) macturb is unphysical
@@ -160,11 +201,12 @@ if isDEMC then begin
     if lambda lt -!dpi then lambda += 2.d0*!dpi
     if lambda ge  !dpi then lambda -= 2.d0*!dpi
     pars[14] = lambda
+    if useDoppTom and (lambda lt blambda[0]) or (lambda ge blambda[1]) then return, !values.d_infinity
     if useDoppTom and (lambdaRange gt 0) and (lambda lt 0.0d0) then return, !values.d_infinity
     if useDoppTom and (lambdaRange lt 0) and (lambda gt 0.0d0) then return, !values.d_infinity
 endif
 
-ntransits = n_elements(tranfit)
+
 
 ;; negative frequency amplitude implies phase is 180 degrees off
 ;; also rescale phase
@@ -222,6 +264,7 @@ if tranfit[0] ne -1 then begin
    G = 2942.71377d0 ;; R_sun^3/(m_sun*day^2), Torres 2010
    a = (10^logg*(period*86400d0)^2/(4d0*!dpi^2*ar^2*100d0) + $
         K*(Period*86400d0)*sqrt(1d0-e^2)/(2d0*!dpi*sini))/6.9566d8     ;; R_sun
+   if a/AU lt ba[0] or a/AU gt ba[1] then return, !values.d_infinity   ;; boundary checking
    rstar = a/ar                                                        ;; R_sun
    mp = 2d0*!dpi*(K*86400d0/6.9566d8)*a^2*sqrt(1d0-e^2)/(G*period*sini);; M_sun
    mstar = 4d0*!dpi^2*a^3/(G*period^2) - mp                            ;; M_sun
@@ -254,11 +297,15 @@ if tranfit[0] ne -1 then begin
 
  
    
-  if keyword_set(useYY) then begin  ;;USE YY-ISOCHRONES RATHER THAN TORRES RELATIONS 
+  if (useYY eq 1) then begin  ;;USE YY-ISOCHRONES RATHER THAN TORRES RELATIONS 
+     ;print, 'Using YY'
      chi2 += massradius_yy2(mstar, feh, teff, rstar, priors[1,11], age=age,debug=debug)
      if ~finite(chi2) then return, !values.d_infinity
      derived = age
-  endif else begin  ;;USE TORRES RELATIONS RATHER THAN YY-ISOCHRONES 
+  endif 
+  
+  if (useYY eq 0) then begin  ;;USE TORRES RELATIONS RATHER THAN YY-ISOCHRONES 
+     ;print, 'Using Torres'
      massradius_torres, logg, teff, feh, mstar_torres, rstar_torres
   
      ;; propagate errors in logumstar/logrstar from Torres relation
@@ -268,7 +315,8 @@ if tranfit[0] ne -1 then begin
      ;; add "prior" penalty
      chi2 += ((mstar-mstar_torres)/umstar)^2
      chi2 += ((rstar-rstar_torres)/urstar)^2     
-  endelse
+  endif
+  
   if not finite(chi2) then stop  
   if keyword_set(useStellarRadiusPrior) then chi2 += ((rstar-stellarRadiusPriorCenter) / stellarRadiusPriorWidth)^2
   if not finite(chi2) then stop  
@@ -295,9 +343,10 @@ phase = exofast_getphase(e,omega,/primary)
 tp = tc - period*phase
 
 phase2 = exofast_getphase(e,omega, /secondary)
+
 ;; secondary eclipse times
 
-ts = tc + period*(phase2-phase)
+ts = tp + period*phase2
 
 ;; prepare the plotting device
 if keyword_set(debug) or keyword_set(psname) then begin
@@ -833,7 +882,7 @@ if (tranfit[0] ne -1) and (ntransits - nsecondaries gt 0) then begin
             spacing = transitSpacing
       
             ;; position keyword required for proper bounding box
-            plot, [0],[0],yrange=[1.0d0-(spacing*1.0d0),1.00d0+(spacing*0.5d0)+spacing*((nTransPerPlot-1d0)>0)],$
+            plot, [0],[0],yrange=[1.0d0-(spacing*1.0d0),1.00d0+(spacing*0.5d0)+spacing*((nTransPerPlot-1d0)>0)+transitTopSpace],$
                   xrange=[-leftPlotWidthHrs,rightPlotWidthHrs],/xstyle,/ystyle, $
                   position=(plotRawLightCurves ? ((plotnum eq 0) ? position10AllLCs : ((plotnum eq 1) ? position11AllLCs : position12AllLCs)) : position1AllLCs), $
                   ytitle=((plotRawLightCurves and (plotnum gt 0)) ? '' : 'Normalized Transit Flux + Constant'), xtitle = TextoIDL('Time - T_C (hrs)'), charsize = charsize*(plotRawLightCurves?2:1), $
@@ -957,7 +1006,7 @@ if (tranfit[0] ne -1) and (ntransits - nsecondaries gt 0) then begin
       endif
       
       
-      ;; normalize the model
+      ;; normalize the model and inverse deblend to match the blended transitflux
       modelflux = pars[trandata.ndx+1]*(modelflux*(1d0-blend)+blend)
 
 
@@ -1312,14 +1361,355 @@ if (tranfit[0] ne -1) and (ntransits - nsecondaries gt 0) and (keyword_set(psnam
 
       ;; residuals below
       plot, [0],[0], xstyle=1, ystyle=1, yrange=[-binnedLcResyRange,binnedLcResyRange], xrange=xrange, ytitle='O-C',$
-       xtitle=xtitle, position=position2BinLC, /noerase, yticks=2,ytickv=[-binnedLcResyRange+0.001,0,binnedLcResyRange-0.001], yminor=binnedLcResyRange*1000, charsize=charsize 
+       xtitle=xtitle, position=position2BinLC, /noerase, yticks=2,ytickv=[-binnedLcResyTick,0,binnedLcResyTick], yminor=4, charsize=charsize 
       oplot, binjd*24, binflux-binmodel,psym=8,symsize=symsize
       oplot, [-9d9,9d9],[0,0], color=red, linestyle=2
 
    endif
 endif  
    
-   
+;;********************* Primary transit rainbow light curve plots **********************
+;; each transit 
+
+nTransPerPlot = nTransitsPerPlot ;savelocal version so as not to overwrite global version
+if nTransPerPlot gt (ntransits-nsecondaries) then nTransPerPlot = ntransits-nsecondaries
+nTransitPlots = ceil((double(ntransits-nsecondaries))/double(nTransPerPlot))
+
+;print, 'nTransitPlots=',nTransitPlots
+if (tranfit[0] ne -1) and (ntransits - nsecondaries gt 0) and (keyword_set(psname) or keyword_set(debug)) then begin
+   filters = ['Sloanu','U','v','B','b','Sloang','y','V','Sloanr','Kepler','CoRoT','R','Sloani','I','Sloanz','J','H','K','Spit36','Spit45','Spit58','Spit80']
+   nfilters = n_elements(filters)
+   transitindex = INDGEN(ntransits - nsecondaries)
+   k = 0
+   for j=0, nfilters-1 do begin
+     for i=0, ntransits-1 do begin
+       if ((*(transitptrs[tranfit[i]])).secondary eq 0 and (*(transitptrs[tranfit[i]])).band eq filters[j]) then begin
+          transitindex[k]= i
+          k++   
+       endif
+     endfor
+   endfor
+  
+   if k ne ntransits-nsecondaries then begin
+      printf, log, 'ERROR: bandname not recognized when reordering transits for rainbow plot'
+      message, 'ERROR: bandname not recognized when reordering transits for rainbow plot'
+   endif
+  
+   n  = -1 
+   nn = -1
+   istart = -1
+   pagenum = 0
+   plotnum = 0
+   nplots = 1
+   if plotRawLightCurves and (keyword_set(psname) or keyword_set(debug)) then begin
+     !p.multi=[0,3,1]  ; landscape plots on each page showing raw (left) and detrended (center) and residuals (right)
+   endif else begin
+     !p.multi=0        ;a single column plot for detrended light curves only
+   endelse
+    
+   for i=0, ntransits-nsecondaries-1 do begin
+      trandata = (*(transitptrs[tranfit[transitindex[i]]])) 
+      if (trandata.secondary eq 1) then continue;
+      n  += 1
+      if plotnum eq 0 then nn += 1
+      if n mod nTransPerPlot eq 0 then begin
+         n = 0
+         if plotnum eq 0 then begin
+           pagenum += 1
+           lastnn = nn
+         endif
+         if pagenum eq nTransitPlots then begin
+            n = nTransPerPlot - (ntransits - nsecondaries - (plotnum eq 0 ? nn : lastnn))
+            ;print, 'lastStartingN=',n
+         endif else begin
+            n = 0
+         endelse
+         if keyword_set(psname) or keyword_set(debug) then begin
+            if keyword_set(psname) then begin
+               !p.font=0
+               if plotRawLightCurves then begin
+                   xsize = 25
+                   ysize = 5 + nTransPerPlot*2
+                   maxy = 20
+                   if ysize ge maxy then ysize = maxy
+                   device, xsize=xsize,ysize=ysize, yoffset=xsize, xoffset = 1.6, /LANDSCAPE
+               endif else begin
+                   xsize = 20
+                   ysize=20/aspect_ratio + (nTransPerPlot)*2
+                   maxy = 25
+                   if ysize ge maxy then ysize = maxy
+                   device, xsize=xsize,ysize=ysize, yoffset=2.0, xoffset=2.0, /PORTRAIT
+               endelse
+               loadct, 39, /silent
+               red = 254
+               symsize = 0.33
+            endif else if keyword_set(debug) then begin
+               !p.multi=0
+               xsize = 600
+               ysize=(xsize/aspect_ratio + (nTransPerPlot)*150) < screen[1]
+               if win_state(3) then wset, 3 $
+               else window, 3, xsize=xsize, ysize=ysize, xpos=screen[0]/3d0, ypos=0
+               red = '0000ff'x
+               symsize = 1         
+            endif
+            spacing = transitSpacing
+      
+            ;; position keyword required for proper bounding box
+            plot, [0],[0],yrange=[1.0d0-(spacing*1.0d0),1.00d0+(spacing*0.5d0)+spacing*((nTransPerPlot-1d0)>0)+transitTopSpace],$
+                  xrange=[-leftPlotWidthHrs,rightPlotWidthHrs],/xstyle,/ystyle, $
+                  position=(plotRawLightCurves ? ((plotnum eq 0) ? position10AllLCs : ((plotnum eq 1) ? position11AllLCs : position12AllLCs)) : position1AllLCs), $
+                  ytitle=((plotRawLightCurves and (plotnum gt 0)) ? '' : 'Normalized Transit Flux + Constant'), xtitle = TextoIDL('Time - T_C (hrs)'), charsize = charsize*(plotRawLightCurves?2:1), $
+                  YTICKFORMAT=((plotRawLightCurves and (plotnum gt 0)) ?"(A1)":""), $
+                  title=(plotRawLightCurves ? ((plotnum eq 0) ? 'Undetrended' : ((plotnum eq 1) ? "Detrended" : "Residuals" )) : '')
+         endif    
+      endif
+       ;; If long exposures, create several model points and average 
+       npoints = n_elements(trandata.bjd)                                     ;;********
+       if options.ninterp gt 1 then begin                                     ;;********
+          transitbjd = trandata.bjd#(dblarr(options.ninterp)+1d0) + $          ;;********
+                       ((dindgen(options.ninterp)/(options.ninterp-1d0)-0.5d0)/$   ;;********
+                        1440d*options.exptime)##(dblarr(npoints)+1d)                ;;********
+          modelflux = dblarr(npoints,options.ninterp) + 1d0                       ;;********
+          planetvisible = dblarr(npoints,options.ninterp) + 1d0                 ;;********
+;;          print, 'interpolating ', npoints, 'points => ', n_elements(transitbjd), ' (exptime=',options.exptime,')'
+       endif else begin                                                         ;;********
+          transitbjd = trandata.bjd                                             ;;********
+          modelflux = dblarr(npoints) + 1d0                                     ;;********
+          planetvisible = dblarr(npoints) + 1d0                                 ;;********
+;;         print, 'NO interpolation of ', npoints, ' points', ' (exptime=',options.exptime,')'
+       endelse                                                                  ;;********
+
+      ;; time of periastron corresponding to transit
+      tpn = tp + trandata.epoch*period + pars[trandata.ndx] 
+
+      ;; correct all times to target barycenter (?)
+      transitbjd = bjd2target(transitbjd, inclination=inc, $
+                              a=a/AU,tp=tpn, period=period, e=e,omega=omega) 
+      transitflux = trandata.flux
+      transiterr = trandata.err
+      
+      ;; get the quadratic limb-darkening for each transit 
+      ldcoeffs = quadld(logg, teff, feh, trandata.band)
+      u1 = ldcoeffs[0]
+      u2 = ldcoeffs[1]
+      if ((not finite(u1)) or (not finite(u2))) then  return, !values.d_infinity
+      
+      ;; the impact parameter for each BJD
+      z = exofast_getb(transitbjd, i=inc, a=ar, tperiastron=tpn, $
+                       period=period, e=e,omega=omega,z=depth)
+      
+      ;; the flux during transit
+;;      npoints = n_elements(transitbjd)                                      ;;********
+;;      modelflux = dblarr(npoints) + 1d0                                     ;;********
+      primary = where(depth gt 0,complement=secondary)     
+      if primary[0] ne -1 then begin
+         exofast_occultquad, z[primary], u1, u2, p, mu1
+         modelflux[primary] = mu1
+      endif
+      if n_elements(where(finite(modelflux) eq 0)) gt 1 then begin
+         printf, log, "NaNs ahoy!"
+         printf, log, u1, u2
+         printf, log, logg, teff, feh, trandata.band        
+         print, "NaNs ahoy!"
+         print, u1, u2
+         print, logg, teff, feh, trandata.band
+      endif
+      ;; add the flux from the planet 
+      ;; i.e., everywhere but during secondary eclipse
+;;      planetvisible = dblarr(npoints) + 1d0                                 ;;********
+      if secondary[0] ne - 1 then begin
+         exofast_occultquad, z[secondary]/p, 0, 0, 1d0/p, mu1
+         planetvisible[secondary] = mu1
+      endif
+      modelflux += depth2*planetvisible - depth2
+      
+       ;; now integrate the data points (before detrending)                            ;;******
+       if options.ninterp gt 1 then modelflux = total(modelflux,2)/options.ninterp     ;;******      
+      
+      ;; detrending; this could be done analytically 
+      ;; but what about covariances with non-linear parameters?
+      if trandata.ndetrend gt 0 then begin
+         d0 = trandata.detrend - (replicate(1,npoints)##total(trandata.detrend,2))/npoints ;; zero average
+         detrend = transpose(pars[trandata.ndx+2:trandata.ndx+2+trandata.ndetrend-1]#d0)
+         if nSinusoids gt 0 then begin
+            for f=0, nSinusoids-1 do begin
+               detrend += pars[trandata.ndx+2+trandata.ndetrend + f*2]*sin(2*!dpi*frequencies[f]*transitbjd + $
+                          pars[trandata.ndx+2+trandata.ndetrend + 1 + f*2])
+            endfor
+         endif
+         modelflux += detrend ;; add all detrending
+      endif else if nSinusoids gt 0 then begin
+         detrend = transitbjd*0d0
+         for f=0, nSinusoids-1 do begin
+            detrend += pars[trandata.ndx+2+trandata.ndetrend + f*2]*sin(2*!dpi*frequencies[f]*transitbjd + $
+                      pars[trandata.ndx+2+trandata.ndetrend + 1 + f*2])
+         endfor   
+         modelflux += detrend ;; add all detrending        
+      endif else detrend = 0d0
+      
+      ;; include the blended flux in the filter, blend=(companion flux in filter)/(companion+target flux in filter)
+      blend = 0.0d0
+      if useBlend eq 1 then begin ;;set to 1 to include all specified filter blends, 0 to NOT include any blends even if specifed
+        if trandata.band eq 'U' then blend = blendVals[0] $
+        else if trandata.band eq 'B' then blend = blendVals[1] $
+        else if trandata.band eq 'V' then blend = blendVals[2] $
+        else if trandata.band eq 'R' then blend = blendVals[3] $
+        else if trandata.band eq 'I' then blend = blendVals[4] $
+        else if trandata.band eq 'J' then blend = blendVals[5] $
+        else if trandata.band eq 'H' then blend = blendVals[6] $
+        else if trandata.band eq 'K' then blend = blendVals[7] $
+        else if trandata.band eq 'Sloanu' then blend = blendVals[8] $
+        else if trandata.band eq 'Sloang' then blend = blendVals[9] $
+        else if trandata.band eq 'Sloanr' then blend = blendVals[10] $
+        else if trandata.band eq 'Sloani' then blend = blendVals[11] $
+        else if trandata.band eq 'Sloanz' then blend = blendVals[12] $
+        else if trandata.band eq 'b' then blend = blendVals[13] $
+        else if trandata.band eq 'v' then blend = blendVals[14] $
+        else if trandata.band eq 'y' then blend = blendVals[15] $
+        else if trandata.band eq 'Kepler' then blend = blendVals[16] $
+        else if trandata.band eq 'CoRoT' then blend = blendVals[17] $
+        else if trandata.band eq 'Spit36' then blend = blendVals[18] $
+        else if trandata.band eq 'Spit45' then blend = blendVals[19] $
+        else if trandata.band eq 'Spit58' then blend = blendVals[20] $
+        else if trandata.band eq 'Spit80' then blend = blendVals[21] $
+        else begin
+           printf, log, 'ERROR: bandname not recognized: ' + trandata.band
+           message, 'ERROR: bandname not recognized: ' + trandata.band
+        endelse
+      endif
+      
+     
+      ;; normalize the model
+      modelflux = pars[trandata.ndx+1]*(modelflux*(1d0-blend)+blend)
+
+      if keyword_set(debug) or keyword_set(psname) then begin
+          filtercolor = black
+          if trandata.band eq 'Sloanu' then filtercolor = 080 $          ;350
+          else if trandata.band eq 'U' then filtercolor = 077 $          ;365 
+          else if trandata.band eq 'v' then filtercolor = 075 $          ;411
+          else if trandata.band eq 'B' then filtercolor = 050 $          ;445
+          else if trandata.band eq 'b' then filtercolor = 070 $          ;467
+          else if trandata.band eq 'Sloang' then filtercolor = 120 $     ;475
+          else if trandata.band eq 'y' then filtercolor = 150 $          ;547
+          else if trandata.band eq 'V' then filtercolor = 150 $          ;551
+          else if trandata.band eq 'Sloanr' then filtercolor = 224 $     ;625
+          else if trandata.band eq 'Kepler' then filtercolor = 230 $     ;640
+          else if trandata.band eq 'CoRoT' then filtercolor = 235 $      ;655
+          else if trandata.band eq 'R' then filtercolor = 245 $          ;658
+          else if trandata.band eq 'Sloani' then filtercolor = 033 $     ;750
+          else if trandata.band eq 'I' then filtercolor = 029 $          ;806   purple
+          else if trandata.band eq 'Sloanz' then filtercolor = 023   $   ;950   black-purple
+          else if trandata.band eq 'J' then filtercolor = black $        ;1220
+          else if trandata.band eq 'H' then filtercolor = black $        ;1630    
+          else if trandata.band eq 'K' then filtercolor = black $        ;2190
+          else if trandata.band eq 'Spit36' then filtercolor = black $   ;3600
+          else if trandata.band eq 'Spit45' then filtercolor = black $   ;4500
+          else if trandata.band eq 'Spit58' then filtercolor = black $   ;5800
+          else if trandata.band eq 'Spit80' then filtercolor = black $   ;8000
+          else begin
+             printf, log, 'ERROR: bandname not recognized: ' + trandata.band
+             message, 'ERROR: bandname not recognized: ' + trandata.band
+          endelse        
+
+         ;; *** the fully-sampled model for pretty plots ***
+         minbjd = min(trandata.bjd,max=maxbjd)
+         minbjd -= 1.0d0 & maxbjd += 1.0d0
+         npretty = ceil((maxbjd-minbjd)*1440d0) ;; 1 per minute
+         prettybjd = minbjd + (maxbjd-minbjd)*dindgen(npretty)/(npretty-1d0)
+         z = exofast_getb(prettybjd, i=inc, a=ar, tperiastron=tpn, $
+                          period=period, e=e,omega=omega,z=depth)
+         prettyflux = dblarr(npretty) + 1d0
+         primary = where(depth gt 0,complement=secondary)
+         if primary[0] ne -1 then begin
+            exofast_occultquad, z[primary], u1, u2, p, mu1
+            prettyflux[primary] = mu1
+         endif
+      
+         ;; add the flux from the planet 
+         ;; i.e., everywhere but during secondary eclipse
+         planetvisible = dblarr(npretty) + 1d0
+         if secondary[0] ne - 1 then begin
+            exofast_occultquad, z[secondary]/p, 0, 0, 1d0/p, mu1
+            planetvisible[secondary] = mu1
+         endif
+         prettyflux += depth2*planetvisible - depth2
+         prettytime = (prettybjd - tc - trandata.epoch*period - pars[trandata.ndx])*24.d0
+         ;; detrend/f0 are removed from data before plotting
+
+         ;; ************************************
+
+         ;; x axis is time - tc in hours
+         time = (trandata.bjd - tc - trandata.epoch*period - pars[trandata.ndx])*24.d0
+
+         ;; subtract blend and normalize the data
+         d = (transitflux/pars[trandata.ndx+1] - blend)/(1d0-blend)
+         modelflux0 = (modelflux/pars[trandata.ndx+1] - blend)/(1d0-blend)
+         
+         ;; subtract the detrending from data
+         dd = d - detrend
+         modelflux00 = modelflux0 - detrend
+                  
+;         forprint, trandata.bjd, dd, trandata.err, textout='transit.' + strtrim(i,2) + '.txt',/nocomment, format='(f14.6,x,f7.5,x,f7.5)'
+
+         xmin=min(time,max=xmax)
+         plotsym, 0, /fill
+         
+         ;; transit + model
+         if plotRawLightCurves and plotnum eq 0 then begin
+            oplot, time, d + spacing*(nTransPerPlot-n-1), psym=8, symsize=symsize, color=filtercolor
+            oplot, time, modelflux0 + spacing*(nTransPerPlot-n-1), thick=2, color=filtercolor, linestyle=0    
+         endif else if plotRawLightCurves and plotnum eq 2 then begin         
+            oplot, time, trandata.flux-modelflux + 1.0d0 + spacing*(nTransPerPlot-n-1), psym=8, symsize=symsize, color=filtercolor
+            oplot, [-9d9,9d9], [0,0] + 1.0d0 + spacing*(nTransPerPlot-n-1), thick=2, color=filtercolor, linestyle=1
+         endif else begin
+            oplot, time, dd + spacing*(nTransPerPlot-n-1), psym=8, symsize=symsize, color=filtercolor
+            oplot, prettytime, prettyflux + spacing*(nTransPerPlot-n-1), thick=2, color=filtercolor, linestyle=0              
+         endelse
+
+         ;; residuals
+         if (not plotRawLightCurves and not keyword_set(noresiduals)) then begin
+            oplot, time, trandata.flux-modelflux + 1.0d0+residualOffsetFromTransitBaseline + spacing*(nTransPerPlot-n-1), $
+                   psym=4, symsize=symsize, color=red
+            oplot, [-9d9,9d9], [0,0] + 1.0d0+residualOffsetFromTransitBaseline + spacing*(nTransPerPlot-n-1), thick=2, $
+                   color=black, linestyle=1
+         endif
+         ;; centered above transit
+         if (not plotRawLightCurves) or (plotnum eq 1) then begin  ;;or (not plotRawLightCurves)
+              legendcharsize = 1.0
+              if plotRawLightCurves then legendcharsize = 0.6
+              xyouts, 0, 1.0d0+labelOffset + spacing*(nTransPerPlot-n-1), trandata.label, charsize=legendcharsize, alignment=0.5, color=filtercolor   ;1.0025 *********************
+         endif
+         
+         if plotnum eq 0 then begin
+           if nn eq 0 then begin
+              alltime = time/24d0 
+              allflux = dd
+              allerr = trandata.err
+              allmodel = modelflux00
+           endif else begin
+              alltime = [alltime,time/24d0]
+              allflux = [allflux,dd]
+              allerr = [allerr,trandata.err]
+              allmodel = [allmodel,modelflux00]
+           endelse
+         endif
+;         print, 'i=', i, ' ', 'n=', n, ' ', 'nn=', nn, ' ', 'plotnum=', plotnum, ' ', 'pagenum=', pagenum
+         if plotRawLightCurves and ((nTransPerPlot eq 1) or ((nn ne 0) and (((n + 1) mod nTransPerPlot) eq 0))) then begin
+           plotnum = (plotnum + 1) mod 3
+           print, ' '
+           if plotnum eq 1 or plotnum eq 2 then begin
+              i = istart
+           endif else begin
+              istart = i
+           endelse  
+           
+         endif         
+       endif
+      
+   endfor
+endif      
+
+!p.multi=0   
    
    
 ;************* PLOT Secondary Transit Light Curves******************
@@ -1762,8 +2152,7 @@ if (tranfit[0] ne -1) and (nsecondaries gt 0) and (keyword_set(psname) or keywor
          ysize=xsize/aspect_ratio
          device, xsize=xsize,ysize=ysize
       endif
-      
-      ;;; Binned Secondary Light Curve
+;***********************Plot Combined and Binned Secondary Light Curve ***********************************************
       
       bintime, alltime, allflux, allerr, 5d0, binjd, binflux, binerr
       
@@ -1777,26 +2166,388 @@ if (tranfit[0] ne -1) and (nsecondaries gt 0) and (keyword_set(psname) or keywor
       endif
 
       ;; binned data
-      plot, [0],[0], xstyle=1, ystyle=1,yrange=[binnedSecondaryLcYMin,binnedSecondaryLcYMax], xrange=xrange, xtickformat='(A1)',$   ;;/ystyle,
+      plot, [0],[0], xstyle=9, ystyle=1, XMARGIN=[8, 8], yrange=[binnedSecondaryLcYMin,binnedSecondaryLcYMax], xrange=xrange, xtickformat='(A1)',$   ;;/ystyle,
             ytitle='Normalized Secondary Flux', position=position1BinLC,charsize=charsize
+      AXIS, XAXIS=1, xstyle=1, XRANGE = (((xrange/24.d0 + ts - tc + period) mod period)/period + 1.0d0) mod 1.0d0, XTITLE = 'Orbital Phase', charsize=charsize
       oplot, binjd*24, binflux, psym=8, symsize=symsize
-
+;      print, 'phase = ', phase 
+;      print, 'period = ', period
+;      print, 'tc = ', tc
+;      print, 'ts = ', ts
+;      print, 'Phase min = ', ((( !X.CRANGE[0]/24.0d0 + ts - tc + period) mod period)/period + 1.0d0) mod 1.0d0
+;      print, 'Ts phase = ', ((( ts - tc + period) mod period)/period + 1.0d0) mod 1.0d0 ;-leftSecondaryPlotWidthHrs/24.d0 +
+;      print, 'Phase min = ', ((( !X.CRANGE[1]/24.0d0 + ts - tc + period) mod period)/period + 1.0d0) mod 1.0d0
       ;; binned model
       bintime, alltime, allmodel, allerr, 5d0, binjdm, binmodel, binerr
       binjd = [-9d9,binjd,9d9]
       binmodel = [1d0, binmodel, 1d0]
       binflux = [1d0, binflux, 1d0]
+
       oplot, binjd*24d0, binmodel, thick=2, color=red, linestyle=0
 
       ;; residuals below
       plot, [0],[0], xstyle=1, ystyle=1, yrange=[-binnedSecondaryLcResyRange,binnedSecondaryLcResyRange], xrange=xrange, ytitle='O-C',$
-       xtitle=xtitle, position=position2BinLC, /noerase, yticks=2,ytickv=[-binnedSecondaryLcResyRange,0,binnedSecondaryLcResyRange], yminor=binnedSecondaryLcResyRange*1000,charsize=charsize
+       xtitle=xtitle, position=position2BinLC, /noerase, yticks=2,ytickv=[-binnedSecondaryLcResyTick,0,binnedSecondaryLcResyTick], yminor=4, charsize=charsize
       oplot, binjd*24, binflux-binmodel,psym=8,symsize=symsize
       oplot, [-9d9,9d9],[0,0], color=red, linestyle=2
    endif
 endif 
  
- ;;;*****************END Secondary Light Curve Plots*******************
+ !p.multi=0
+ ;;;*****************END Standard Secondary Light Curve Plots*******************
+ 
+ 
+
+ ;;********************* START Secondary transit rainbow light curve plots **********************
+;; each transit 
+
+nTransPerPlot = nTransitsPerPlot ;savelocal version so as not to overwrite global version
+if nTransPerPlot gt (nsecondaries) then nTransPerPlot = nsecondaries
+nTransitPlots = ceil((double(nsecondaries))/double(nTransPerPlot))
+
+;print, 'nTransitPlots=',nTransitPlots
+if (tranfit[0] ne -1) and (nsecondaries gt 0) and (keyword_set(psname) or keyword_set(debug)) then begin
+  
+   filters = ['Sloanu','U','v','B','b','Sloang','y','V','Sloanr','Kepler','CoRoT','R','Sloani','I','Sloanz','J','H','K','Spit36','Spit45','Spit58','Spit80']
+   nfilters = n_elements(filters)
+   transitindex = INDGEN(nsecondaries)
+   k = 0
+   for j=0, nfilters-1 do begin
+     for i=0, ntransits-1 do begin
+       if ((*(transitptrs[tranfit[i]])).secondary eq 1 and (*(transitptrs[tranfit[i]])).band eq filters[j]) then begin
+          transitindex[k]= i
+          k++   
+       endif
+     endfor
+   endfor
+   
+   if k ne nsecondaries then begin
+      printf, log, 'ERROR: bandname not recognized when reordering secondary transits for rainbow plot'
+      message, 'ERROR: bandname not recognized when reordering secondary transits for rainbow plot'
+   endif
+  
+   n  = -1 
+   nn = -1
+   istart = -1
+   pagenum = 0
+   plotnum = 0
+   nplots = 1
+   if plotRawLightCurves and (keyword_set(psname) or keyword_set(debug)) then begin
+     !p.multi=[0,3,1]  ; landscape plots on each page showing raw (left) and detrended (center) and residuals (right)
+   endif else begin
+     !p.multi=0        ;a single column plot for detrended light curves only
+   endelse
+    
+   for i=0, nsecondaries-1 do begin
+      trandata = (*(transitptrs[tranfit[transitindex[i]]])) 
+      if (trandata.secondary eq 0) then continue;
+      n  += 1
+      if plotnum eq 0 then nn += 1
+      if n mod nTransPerPlot eq 0 then begin
+         n = 0
+         if plotnum eq 0 then begin
+           pagenum += 1
+           lastnn = nn
+         endif
+         if pagenum eq nTransitPlots then begin
+            n = nTransPerPlot - (nsecondaries - (plotnum eq 0 ? nn : lastnn))
+            ;print, 'lastStartingN=',n
+         endif else begin
+            n = 0
+         endelse
+         if keyword_set(psname) or keyword_set(debug) then begin
+            if keyword_set(psname) then begin
+               !p.font=0
+               if plotRawLightCurves then begin
+                   xsize = 25
+                   ysize = 5 + nTransPerPlot*1
+                   maxy = 20
+                   if ysize ge maxy then ysize = maxy
+                   device, xsize=xsize,ysize=ysize, yoffset=xsize, xoffset = 1.6, /LANDSCAPE
+               endif else begin
+                   xsize = 20
+                   ysize=20/aspect_ratio + (nTransPerPlot)*2
+                   maxy = 25
+                   if ysize ge maxy then ysize = maxy
+                   device, xsize=xsize,ysize=ysize, yoffset=2.0, xoffset=2.0, /PORTRAIT
+               endelse
+               loadct, 39, /silent
+               red = 254
+               symsize = 0.33
+            endif else if keyword_set(debug) then begin
+               !p.multi=0
+               xsize = 600
+               ysize=(xsize/aspect_ratio + (nTransPerPlot)*150) < screen[1]
+               if win_state(3) then wset, 3 $
+               else window, 3, xsize=xsize, ysize=ysize, xpos=screen[0]/3d0, ypos=0
+               red = '0000ff'x
+               symsize = 1         
+            endif
+            spacing = secondarySpacing
+            
+            ;; position keyword required for proper bounding box
+            plot, [0],[0],yrange=[1.0d0-(spacing*1.0d0),1.00d0+(spacing*0.5d0)+spacing*((nTransPerPlot-1d0)>0)+transitTopSpace],$
+                  xrange=[-leftSecondaryPlotWidthHrs,rightSecondaryPlotWidthHrs],/xstyle,/ystyle, $
+                  position=(plotRawLightCurves ? ((plotnum eq 0) ? position10AllLCs : ((plotnum eq 1) ? position11AllLCs : position12AllLCs)) : position1AllLCs), $
+                  ytitle=((plotRawLightCurves and (plotnum gt 0)) ? '' : 'Normalized Secondary Flux + Constant'), xtitle = TextoIDL('Time - T_C (hrs)'), charsize = charsize*(plotRawLightCurves?2:1), $
+                  YTICKFORMAT=((plotRawLightCurves and (plotnum gt 0)) ?"(A1)":""), $
+                  title=(plotRawLightCurves ? ((plotnum eq 0) ? 'Undetrended' : ((plotnum eq 1) ? "Detrended" : "Residuals" )) : '')
+         endif    
+      endif
+       ;; If long exposures, create several model points and average 
+       npoints = n_elements(trandata.bjd)                                     ;;********
+       if options.ninterp gt 1 then begin                                     ;;********
+          transitbjd = trandata.bjd#(dblarr(options.ninterp)+1d0) + $          ;;********
+                       ((dindgen(options.ninterp)/(options.ninterp-1d0)-0.5d0)/$   ;;********
+                        1440d*options.exptime)##(dblarr(npoints)+1d)                ;;********
+          modelflux = dblarr(npoints,options.ninterp) + 1d0                       ;;********
+          planetvisible = dblarr(npoints,options.ninterp) + 1d0                 ;;********
+;;          print, 'interpolating ', npoints, 'points => ', n_elements(transitbjd), ' (exptime=',options.exptime,')'
+       endif else begin                                                         ;;********
+          transitbjd = trandata.bjd                                             ;;********
+          modelflux = dblarr(npoints) + 1d0                                     ;;********
+          planetvisible = dblarr(npoints) + 1d0                                 ;;********
+;;         print, 'NO interpolation of ', npoints, ' points', ' (exptime=',options.exptime,')'
+       endelse                                                                  ;;********
+
+      ;; time of periastron corresponding to transit
+      tpn = tp + trandata.epoch*period + pars[trandata.ndx] 
+
+      ;; correct all times to target barycenter (?)
+      transitbjd = bjd2target(transitbjd, inclination=inc, $
+                              a=a/AU,tp=tpn, period=period, e=e,omega=omega) 
+      transitflux = trandata.flux
+      transiterr = trandata.err
+      
+      ;; get the quadratic limb-darkening for each transit 
+      ldcoeffs = quadld(logg, teff, feh, trandata.band)
+      u1 = ldcoeffs[0]
+      u2 = ldcoeffs[1]
+      if ((not finite(u1)) or (not finite(u2))) then  return, !values.d_infinity
+      
+      ;; the impact parameter for each BJD
+      z = exofast_getb(transitbjd, i=inc, a=ar, tperiastron=tpn, $
+                       period=period, e=e,omega=omega,z=depth)
+      
+      ;; the flux during transit
+;;      npoints = n_elements(transitbjd)                                      ;;********
+;;      modelflux = dblarr(npoints) + 1d0                                     ;;********
+      primary = where(depth gt 0,complement=secondary)     
+      if primary[0] ne -1 then begin
+         exofast_occultquad, z[primary], u1, u2, p, mu1
+         modelflux[primary] = mu1
+      endif
+      if n_elements(where(finite(modelflux) eq 0)) gt 1 then begin
+         printf, log, "NaNs ahoy!"
+         printf, log, u1, u2
+         printf, log, logg, teff, feh, trandata.band        
+         print, "NaNs ahoy!"
+         print, u1, u2
+         print, logg, teff, feh, trandata.band
+      endif
+      ;; add the flux from the planet 
+      ;; i.e., everywhere but during secondary eclipse
+;;      planetvisible = dblarr(npoints) + 1d0                                 ;;********
+      if secondary[0] ne - 1 then begin
+         exofast_occultquad, z[secondary]/p, 0, 0, 1d0/p, mu1
+         planetvisible[secondary] = mu1
+      endif
+      modelflux += depth2*planetvisible - depth2
+      
+       ;; now integrate the data points (before detrending)                            ;;******
+       if options.ninterp gt 1 then modelflux = total(modelflux,2)/options.ninterp     ;;******      
+      
+      ;; detrending; this could be done analytically 
+      ;; but what about covariances with non-linear parameters?
+      if trandata.ndetrend gt 0 then begin
+         d0 = trandata.detrend - (replicate(1,npoints)##total(trandata.detrend,2))/npoints ;; zero average
+         detrend = transpose(pars[trandata.ndx+2:trandata.ndx+2+trandata.ndetrend-1]#d0)
+         if nSinusoids gt 0 then begin
+            for f=0, nSinusoids-1 do begin
+               detrend += pars[trandata.ndx+2+trandata.ndetrend + f*2]*sin(2*!dpi*frequencies[f]*transitbjd + $
+                          pars[trandata.ndx+2+trandata.ndetrend + 1 + f*2])
+            endfor
+         endif
+         modelflux += detrend ;; add all detrending
+      endif else if nSinusoids gt 0 then begin
+         detrend = transitbjd*0d0
+         for f=0, nSinusoids-1 do begin
+            detrend += pars[trandata.ndx+2+trandata.ndetrend + f*2]*sin(2*!dpi*frequencies[f]*transitbjd + $
+                      pars[trandata.ndx+2+trandata.ndetrend + 1 + f*2])
+         endfor   
+         modelflux += detrend ;; add all detrending        
+      endif else detrend = 0d0
+      
+      ;; include the blended flux in the filter, blend=(companion flux in filter)/(companion+target flux in filter)
+      blend = 0.0d0
+      if useBlend eq 1 then begin ;;set to 1 to include all specified filter blends, 0 to NOT include any blends even if specifed
+        if trandata.band eq 'U' then blend = blendVals[0] $
+        else if trandata.band eq 'B' then blend = blendVals[1] $
+        else if trandata.band eq 'V' then blend = blendVals[2] $
+        else if trandata.band eq 'R' then blend = blendVals[3] $
+        else if trandata.band eq 'I' then blend = blendVals[4] $
+        else if trandata.band eq 'J' then blend = blendVals[5] $
+        else if trandata.band eq 'H' then blend = blendVals[6] $
+        else if trandata.band eq 'K' then blend = blendVals[7] $
+        else if trandata.band eq 'Sloanu' then blend = blendVals[8] $
+        else if trandata.band eq 'Sloang' then blend = blendVals[9] $
+        else if trandata.band eq 'Sloanr' then blend = blendVals[10] $
+        else if trandata.band eq 'Sloani' then blend = blendVals[11] $
+        else if trandata.band eq 'Sloanz' then blend = blendVals[12] $
+        else if trandata.band eq 'b' then blend = blendVals[13] $
+        else if trandata.band eq 'v' then blend = blendVals[14] $
+        else if trandata.band eq 'y' then blend = blendVals[15] $
+        else if trandata.band eq 'Kepler' then blend = blendVals[16] $
+        else if trandata.band eq 'CoRoT' then blend = blendVals[17] $
+        else if trandata.band eq 'Spit36' then blend = blendVals[18] $
+        else if trandata.band eq 'Spit45' then blend = blendVals[19] $
+        else if trandata.band eq 'Spit58' then blend = blendVals[20] $
+        else if trandata.band eq 'Spit80' then blend = blendVals[21] $
+        else begin
+           printf, log, 'ERROR: bandname not recognized: ' + trandata.band
+           message, 'ERROR: bandname not recognized: ' + trandata.band
+        endelse
+      endif
+      
+     
+      ;; normalize the model
+      modelflux = pars[trandata.ndx+1]*(modelflux*(1d0-blend)+blend)
+
+
+      ;;if plotnum eq 0 then chi2 += total(((transitflux - modelflux)/transiterr)^2)
+
+
+      if keyword_set(debug) or keyword_set(psname) then begin
+        
+          filtercolor = black
+          if trandata.band eq 'Sloanu' then filtercolor = 080 $          ;350
+          else if trandata.band eq 'U' then filtercolor = 077 $          ;365 
+          else if trandata.band eq 'v' then filtercolor = 075 $          ;411
+          else if trandata.band eq 'B' then filtercolor = 050 $          ;445
+          else if trandata.band eq 'b' then filtercolor = 070 $          ;467
+          else if trandata.band eq 'Sloang' then filtercolor = 120 $     ;475
+          else if trandata.band eq 'y' then filtercolor = 150 $          ;547
+          else if trandata.band eq 'V' then filtercolor = 150 $          ;551
+          else if trandata.band eq 'Sloanr' then filtercolor = 224 $     ;625
+          else if trandata.band eq 'Kepler' then filtercolor = 230 $     ;640
+          else if trandata.band eq 'CoRoT' then filtercolor = 235 $      ;655
+          else if trandata.band eq 'R' then filtercolor = 245 $          ;658
+          else if trandata.band eq 'Sloani' then filtercolor = 033 $     ;750
+          else if trandata.band eq 'I' then filtercolor = 029 $          ;806   purple
+          else if trandata.band eq 'Sloanz' then filtercolor = 023   $   ;950   black-purple
+          else if trandata.band eq 'J' then filtercolor = black $        ;1220
+          else if trandata.band eq 'H' then filtercolor = black $        ;1630    
+          else if trandata.band eq 'K' then filtercolor = black $        ;2190
+          else if trandata.band eq 'Spit36' then filtercolor = black $   ;3600
+          else if trandata.band eq 'Spit45' then filtercolor = black $   ;4500
+          else if trandata.band eq 'Spit58' then filtercolor = black $   ;5800
+          else if trandata.band eq 'Spit80' then filtercolor = black $   ;8000
+          else begin
+             printf, log, 'ERROR: bandname not recognized: ' + trandata.band
+             message, 'ERROR: bandname not recognized: ' + trandata.band
+          endelse        
+
+         ;; *** the fully-sampled model for pretty plots ***
+         minbjd = min(trandata.bjd,max=maxbjd)
+         minbjd -= 1.0d0 & maxbjd += 1.0d0
+         npretty = ceil((maxbjd-minbjd)*1440d0) ;; 1 per minute
+         prettybjd = minbjd + (maxbjd-minbjd)*dindgen(npretty)/(npretty-1d0)
+         z = exofast_getb(prettybjd, i=inc, a=ar, tperiastron=tpn, $
+                          period=period, e=e,omega=omega,z=depth)
+         prettyflux = dblarr(npretty) + 1d0
+         primary = where(depth gt 0,complement=secondary)
+         if primary[0] ne -1 then begin
+            exofast_occultquad, z[primary], u1, u2, p, mu1
+            prettyflux[primary] = mu1
+         endif
+      
+         ;; add the flux from the planet 
+         ;; i.e., everywhere but during secondary eclipse
+         planetvisible = dblarr(npretty) + 1d0
+         if secondary[0] ne - 1 then begin
+            exofast_occultquad, z[secondary]/p, 0, 0, 1d0/p, mu1
+            planetvisible[secondary] = mu1
+         endif
+         prettyflux += depth2*planetvisible - depth2
+         prettytime = (prettybjd - ts - (trandata.epoch+((tc gt ts)?1.0d0:0.0d0))*period - pars[trandata.ndx])*24.d0
+         ;; detrend/f0 are removed from data before plotting
+
+         ;; ************************************
+
+         ;; x axis is time - ts in hours
+         time = (trandata.bjd - ts - (trandata.epoch+((tc gt ts)?1.0d0:0.0d0))*period - pars[trandata.ndx])*24.d0
+
+         ;; subtract blend and normalize the data
+         d = (transitflux/pars[trandata.ndx+1] - blend)/(1d0-blend)
+         modelflux0 = (modelflux/pars[trandata.ndx+1] - blend)/(1d0-blend)
+         
+         ;; subtract the detrending from data
+         dd = d - detrend
+         modelflux00 = modelflux0 - detrend
+                  
+;         forprint, trandata.bjd, dd, trandata.err, textout='transit.' + strtrim(i,2) + '.txt',/nocomment, format='(f14.6,x,f7.5,x,f7.5)'
+
+         xmin=min(time,max=xmax)
+         plotsym, 0, /fill
+         
+         ;; transit + model
+         if plotRawLightCurves and plotnum eq 0 then begin
+            oplot, time, d + spacing*(nTransPerPlot-n-1), psym=8, symsize=symsize, color=filtercolor
+            oplot, time, modelflux0 + spacing*(nTransPerPlot-n-1), thick=2, color=filtercolor, linestyle=0    
+         endif else if plotRawLightCurves and plotnum eq 2 then begin         
+            oplot, time, trandata.flux-modelflux + 1.0d0 + spacing*(nTransPerPlot-n-1), psym=8, symsize=symsize, color=filtercolor
+            oplot, [-9d9,9d9], [0,0] + 1.0d0 + spacing*(nTransPerPlot-n-1), thick=2, color=filtercolor, linestyle=1
+         endif else begin
+            oplot, time, dd + spacing*(nTransPerPlot-n-1), psym=8, symsize=symsize, color=filtercolor
+            oplot, prettytime, prettyflux + spacing*(nTransPerPlot-n-1), thick=2, color=filtercolor, linestyle=0              
+         endelse
+
+         ;; residuals
+         if (not plotRawLightCurves and not keyword_set(nosecondaryresiduals)) then begin
+            oplot, time, trandata.flux-modelflux + 1.0d0+residualOffsetFromSecondaryBaseline + spacing*(nTransPerPlot-n-1), $
+                   psym=4, symsize=symsize, color=red
+            oplot, [-9d9,9d9], [0,0] + 1.0d0+residualOffsetFromSecondaryBaseline + spacing*(nTransPerPlot-n-1), thick=2, $
+                   color=black, linestyle=1
+         endif
+         ;; centered above transit
+         if (not plotRawLightCurves) or (plotnum eq 1) then begin  ;;or (not plotRawLightCurves)
+              legendcharsize = 1.0
+              if plotRawLightCurves then legendcharsize = 0.6
+              xyouts, 0, 1.0d0+secondarylabelOffset + spacing*(nTransPerPlot-n-1), trandata.label, charsize=legendcharsize, alignment=0.5, color=filtercolor   ;1.0025 *********************
+         endif
+         
+         if plotnum eq 0 then begin
+           if nn eq 0 then begin
+              alltime = time/24d0 
+              allflux = dd
+              allerr = trandata.err
+              allmodel = modelflux00
+           endif else begin
+              alltime = [alltime,time/24d0]
+              allflux = [allflux,dd]
+              allerr = [allerr,trandata.err]
+              allmodel = [allmodel,modelflux00]
+           endelse
+         endif
+;         print, 'i=', i, ' ', 'n=', n, ' ', 'nn=', nn, ' ', 'plotnum=', plotnum, ' ', 'pagenum=', pagenum
+         if plotRawLightCurves and ((nTransPerPlot eq 1) or ((nn ne 0) and (((n + 1) mod nTransPerPlot) eq 0))) then begin
+           plotnum = (plotnum + 1) mod 3
+           print, ' '
+           if plotnum eq 1 or plotnum eq 2 then begin
+              i = istart
+           endif else begin
+              istart = i
+           endelse  
+           
+         endif         
+       endif
+      
+   endfor
+endif      
+
+!p.multi=0
+
+;;****************************End Rainbow Secondary Plot*************************************************************
 
 if useDoppTom and keyword_set(psname) then begin
   pars1 = pars
@@ -1841,8 +2592,8 @@ if useDoppTom and keyword_set(psname) then begin
     phase = (DTbjd-localtc) / 10^(pars[2])
     vsini = pars[13]/1000.0d0
     
-    velplotmax = max([abs(min(DTvel)),abs(max(DTvel))])
-    phaseplotmax = max([abs(min(phase)),abs(max(phase))])
+    velplotmax = vsini*1.4d0;max([abs(min(DTvel)),abs(max(DTvel))])
+    phaseplotmax = max([abs(min(phase)),abs(max(phase))]) ;; 0.075 ;for KELT-9 plot
     minvel = min(DTvel)
     maxvel = max(DTvel)
     minphase = min(phase)

@@ -79,8 +79,8 @@ endelse
 format='(f14.6,x,f12.6,x,f12.6,x,f12.6,x,f12.6,x,f12.6,x,f12.6,x,f12.6,x,f12.6)'
 
 ;resolve_all,/continue_on_error ;; makes the type pretty
-printf, log, "     T_C            Period        ecosw        esinw        K          gamma          slope      chi^2      chi^2/dof"
-print, "     T_C            Period        ecosw        esinw        K          gamma          slope      chi^2      chi^2/dof"
+printf, log, "     T_C            Period          e          omega        K          gamma          slope      chi^2      chi^2/dof"
+print, "     T_C            Period          e          omega        K          gamma          slope      chi^2      chi^2/dof"
 
 ;; now refine with amoeba
 nsteps = n_elements(periods)
@@ -102,7 +102,7 @@ if keyword_set(circular) then begin
             scale = [0.d0,perscale[i],0.d0, 0.d0, 0.d0, 0.d0, 0.d0]
             
             ;; amoeba fit
-            initpars = multifast_amoeba(amobtol, function_name='exofast_getchi2_rv_fitcirnom',$
+            initpars = multifast_amoeba(amobtol, function_name='multifast_getchi2_rv_fitcirnom',$
                                       p0=pars,scale=scale, log=log)    
             
             ;; if the fit converged, see if it's better than the previous one
@@ -112,8 +112,16 @@ if keyword_set(circular) then begin
                     bestchi2 = chi2
                     bestpars = initpars
                 endif
-                printf, log, initpars, chi2, chi2/dof, format=format
-                print, initpars, chi2, chi2/dof, format=format
+                printpars = initpars
+                e0 = sqrt(initpars[2]^2 + initpars[3]^2)
+                ;; compute the model inputs
+                if e0 eq 0 then omega0 = !dpi/2.d0 $
+                else omega0 = atan(initpars[3]/initpars[2])
+                if initpars[2] lt 0 then omega0 += !dpi     
+                printpars[2] = e0 
+                printpars[3] = omega0*180.0d0/!dpi           
+                printf, log, printpars, chi2, chi2/dof, format=format
+                print, printpars, chi2, chi2/dof, format=format
             endif
         endfor
     endif else begin
@@ -134,7 +142,7 @@ if keyword_set(circular) then begin
             scale = [0.d0,perscale[i],0.d0, 0.d0, 0.d0, 0.d0, 0.d0]
             
             ;; amoeba fit
-            initpars = multifast_amoeba(amobtol, function_name='exofast_getchi2_rv_fitcir',$
+            initpars = multifast_amoeba(amobtol, function_name='multifast_getchi2_rv_fitcir',$
                                       p0=pars,scale=scale,log=log)    
             
             ;; if the fit converged, see if it's better than the previous one
@@ -144,8 +152,16 @@ if keyword_set(circular) then begin
                     bestchi2 = chi2
                     bestpars = initpars
                 endif
-                printf, log, initpars, chi2, chi2/dof, format=format
-                print, initpars, chi2, chi2/dof, format=format
+                printpars = initpars
+                e0 = sqrt(initpars[2]^2 + initpars[3]^2)
+                ;; compute the model inputs
+                if e0 eq 0 then omega0 = !dpi/2.d0 $
+                else omega0 = atan(initpars[3]/initpars[2])
+                if initpars[2] lt 0 then omega0 += !dpi     
+                printpars[2] = e0 
+                printpars[3] = omega0*180.0d0/!dpi           
+                printf, log, printpars, chi2, chi2/dof, format=format
+                print, printpars, chi2, chi2/dof, format=format                
             endif
         endfor
     endelse
@@ -168,7 +184,7 @@ endif else begin
             
             pars = [jd_0,periods[i],0.d0,0.d0, 0.d0, 0.d0, 0.d0]
             scale = [periods[i]/2.d0,perscale[i],0.5d0,0.5d0, 0.d0, 0.d0, 0.d0]
-            initpars=multifast_amoeba(amobtol,function_name='exofast_getchi2_rv_fitnom',p0=pars,scale=scale,log=log)
+            initpars=multifast_amoeba(amobtol,function_name='multifast_getchi2_rv_fitnom',p0=pars,scale=scale,log=log)
             
             ;; if the fit is ok, see if it's better than the previous one
             if initpars[0] ne -1 then begin
@@ -177,7 +193,16 @@ endif else begin
                     bestchi2 = chi2
                     bestpars = initpars
                 endif
-                print, initpars, chi2, chi2/dof, format=format
+                printpars = initpars
+                e0 = sqrt(initpars[2]^2 + initpars[3]^2)
+                ;; compute the model inputs
+                if e0 eq 0 then omega0 = !dpi/2.d0 $
+                else omega0 = atan(initpars[3]/initpars[2])
+                if initpars[2] lt 0 then omega0 += !dpi     
+                printpars[2] = e0 
+                printpars[3] = omega0*180.0d0/!dpi           
+                printf, log, printpars, chi2, chi2/dof, format=format
+                print, printpars, chi2, chi2/dof, format=format                
             endif
             
 
@@ -197,7 +222,7 @@ endif else begin
             
             pars = [jd_0,periods[i],0.d0,0.d0, 0.d0, 0.d0, 0.d0]
             scale = [periods[i]/2.75d0,perscale[i],0.5d0,0.5d0, 0.d0, 0.d0, 0.d0]
-            initpars=multifast_amoeba(amobtol,function_name='exofast_getchi2_rv_fit',p0=pars,scale=scale,log=log)
+            initpars=multifast_amoeba(amobtol,function_name='multifast_getchi2_rv_fit',p0=pars,scale=scale,log=log)
 
             ;; if the fit is ok, see if it's better than the previous one
             if initpars[0] ne -1 then begin
@@ -206,8 +231,16 @@ endif else begin
                     bestchi2 = chi2
                     bestpars = initpars
                 endif
-                printf, log, initpars, chi2, chi2/dof, format=format
-                print, initpars, chi2, chi2/dof, format=format
+                printpars = initpars
+                e0 = sqrt(initpars[2]^2 + initpars[3]^2)
+                ;; compute the model inputs
+                if e0 eq 0 then omega0 = !dpi/2.d0 $
+                else omega0 = atan(initpars[3]/initpars[2])
+                if initpars[2] lt 0 then omega0 += !dpi     
+                printpars[2] = e0 
+                printpars[3] = omega0*180.0d0/!dpi           
+                printf, log, printpars, chi2, chi2/dof, format=format
+                print, printpars, chi2, chi2/dof, format=format
             endif           
 
         endfor

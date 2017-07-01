@@ -1,4 +1,4 @@
-function readtransit3, filename
+function readtransit3, filename, nmaxdetrends
 
 ;; Read the transit data file into a structure
 ;; (with an arbitary number of detrending variables)
@@ -37,9 +37,10 @@ free_lun, lun
 bjd = transpose(array[0,*])
 flux = transpose(array[1,*])
 err = transpose(array[2,*])
-if ncol gt 3 then begin
-   d = array[3:ncol-1,*]
-   ndetrend = ncol-3
+
+if (ncol gt 3) && (nmaxdetrends gt 0) then begin
+   ndetrend = ncol-3 < nmaxdetrends
+   d = array[3:3+ndetrend-1,*]
 endif else begin
    d = 0d0
    ndetrend=0

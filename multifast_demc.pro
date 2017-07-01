@@ -160,7 +160,8 @@ if n_elements(mintz) eq 0 then mintz = 1000d0
 if n_elements(maxgr) eq 0 then maxgr = 1.01d0
 nfit = n_elements(tofit)
 !except = 0 ;; don't display errors for NaN and infinity
-
+printf, log, 'Gelman-Rubin Threshold (default = 1.01) = ', maxgr
+print, 'Gelman-Rubin Threshold (default = 1.01) = ', maxgr
 lasttz = 0d0;
 lastgr = 1000.0d0
 ;; defaults for Differential Evolution MCMC
